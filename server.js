@@ -175,5 +175,14 @@ app.post('/pdf/word-to-pdf', upload.single('file'), async (req, res) => {
   });
 });
 
+app.post('/convert/document', upload.single('file'), async (req, res) => {
+  const inputPath = req.file.path;
+  exec(`libreoffice --headless --convert-to pdf "${inputPath}" --outdir "${tmpDir}"`, (err) => {
+    if (err) return res.status(500).json({ error: 'LibreOffice error' });
+    const outputPath = inputPath.replace(/\.[^/.]+$/, '.pdf');
+    res.download(outputPath, 'converted.pdf', () => { deleteAfter(inputPath, 1000); deleteAfter(outputPath, 1000); });
+  });
+});
+
 app.get('/', (req, res) => res.json({ status: 'ZipZap Converter API running! 🚀', version: '2.0.0' }));
 app.listen(PORT, () => console.log(`ZipZap Server running on port ${PORT}`));
