@@ -122,6 +122,21 @@ app.post('/pdf/compress', upload.single('file'), async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.post('/pdf/image-to-pdf', upload.single('file'), async (req, res) => {
+  try {
+    const pdfDoc = await PDFDocument.create();
+    const ext = path.extname(req.file.originalname).toLowerCase();
+    let image;
+    if (ext === '.jpg' || ext === '.jpeg') image = await pdfDoc.embedJpg(fs.readFileSync(req.file.path));
+    else image = await pdfDoc.embedPng(await sharp(req.file.path).png().toBuffer());
+    const page = pdfDoc.addPage([image.width, image.height]);
+    page.drawImage(image, { x: 0, y: 0, width: image.width, height: image.height });
+    const outputPath = path.join(tmpDir, Date.now() + '_output.pdf');
+    fs.writeFileSync(outputPath, await pdfDoc.save());
+    res.download(outputPath, 'converted.pdf', () => { deleteAfter(req.file.path, 1000); deleteAfter(outputPath, 1000); });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.post('/pdf/images-to-pdf', upload.array('files'), async (req, res) => {
   try {
     const pdfDoc = await PDFDocument.create();
