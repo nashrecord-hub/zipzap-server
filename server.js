@@ -46,7 +46,7 @@ function sendEmail(to, code, plan) {
   req.end();
 }
 
-app.post('/webhook/stripe', (req, res) => {
+app.post('/webhook/stripe', async (req, res) => {
   let event;
   try { event = JSON.parse(req.body.toString()); } catch (err) { return res.status(400).send('Error'); }
   if (event.type === 'checkout.session.completed') {
