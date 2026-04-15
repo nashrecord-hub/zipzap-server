@@ -9,6 +9,8 @@ const sharp = require('sharp');
 const { exec } = require('child_process');
 const crypto = require('crypto');
 const https = require('https');
+const { createClient } = require('@supabase/supabase-js');
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,7 +21,7 @@ app.use(cors());
 app.use('/webhook/stripe', express.raw({ type: 'application/json' }));
 app.use(express.json());
 
-const accessCodes = {};
+// accessCodes now stored in Supabase
 
 function generateCode(plan) {
   return 'ZIPZAP-' + plan.toUpperCase() + '-' + crypto.randomBytes(4).toString('hex').toUpperCase();
@@ -54,18 +56,18 @@ app.post('/webhook/stripe', (req, res) => {
     let plan = 'PRO';
     if (amount >= 799) plan = 'BUSINESS';
     const code = generateCode(plan);
-    accessCodes[code] = { email, plan, createdAt: new Date().toISOString(), active: true };
+    await supabase.from('access_codes').insert({ code, email, plan });
     console.log('New subscriber:', email, 'Code:', code);
     sendEmail(email, code, plan);
   }
   res.json({ received: true });
 });
 
-app.post('/validate-code', (req, res) => {
+app.post('/validate-code', async (req, res) => {
   const { code } = req.body;
   if (!code) return res.status(400).json({ valid: false });
-  const data = accessCodes[code.toUpperCase().trim()];
-  if (!data) return res.json({ valid: false, error: 'Code invalide' });
+  const { data, error } = await supabase.from('access_codes').select('*').eq('code', code.toUpperCase().trim()).eq('active', true).single();
+  if (error || !data) return res.json({ valid: false, error: 'Code invalide' });
   res.json({ valid: true, plan: data.plan, email: data.email });
 });
 
